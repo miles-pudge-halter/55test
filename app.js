@@ -1104,7 +1104,11 @@
   // Camera: `pos` glides between integer steps; between step i and i+1 we zoom
   // out from the anchor (the previous world) while crossfading the scenes.
   // ---------------------------------------------------------------------------
-  let pos = 0, target = 0, T = 0, last = performance.now();
+  // The page scrolls, and the scroll position drives the zoom: every STEP
+  // pixels of scrolling is one step outwards. `pos` eases after it.
+  let pos = 0, T = 0, last = performance.now(), STEP = 800;
+  const scroller = document.getElementById('scroller');
+  const scrollPos = () => clamp(window.scrollY / STEP, 0, SCENES.length - 1);
 
   function render() {
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
@@ -1141,10 +1145,14 @@
     T += dt;
     boil = Math.floor(T * (reducedMotion ? 2 : 7)) % 4;
 
+    tickSettle(now);
+    tickScrollTween(now);
+    const sp = scrollPos();
+
     // Earth spins freely from the Earth step outwards. Heading back in towards
     // Asia, it first swings round so that Bangkok faces us.
     let aligned = true;
-    if (pos >= EARTH && target >= EARTH) {
+    if (pos >= EARTH && sp >= EARTH) {
       spin += dt * 0.22;
     } else {
       let d = (((spin - BKK_ROT) % TAU) + TAU) % TAU;
@@ -1152,13 +1160,9 @@
       spin -= Math.abs(d) < 0.003 ? d : d * Math.min(1, dt * 4);
       aligned = Math.abs(d) < 0.02;
     }
-    if (pos !== target) {
-      const from = pos;
-      const rate = (reducedMotion ? 2.5 : 1 / 2.6) * Math.max(1, Math.abs(target - pos));
-      const stepAmt = rate * dt;
-      pos = Math.abs(target - pos) <= stepAmt ? target : pos + Math.sign(target - pos) * stepAmt;
-      if (!aligned && from >= EARTH && pos < EARTH) pos = EARTH; // wait for Bangkok to come round
-    }
+    const from = pos;
+    pos = reducedMotion || Math.abs(sp - pos) < 0.0005 ? sp : pos + (sp - pos) * Math.min(1, dt * 7);
+    if (!aligned && from >= EARTH && pos < EARTH) pos = EARTH; // wait for Bangkok to come round
     tickAuto(dt);
     render();
     syncUI();
@@ -1232,50 +1236,86 @@
     card.dataset.ready = '1';
   }
 
+  const hint = $('hint');
   function syncUI() {
-    const cur = Math.round(pos);
+    const cur = Math.round(pos), at = Math.round(scrollPos());
     if (cur !== shown) showCard(cur);
-    stepBtns.forEach((b, i) => (i === target ? b.setAttribute('aria-current', 'step') : b.removeAttribute('aria-current')));
-    backBtn.disabled = target === 0;
-    const atEnd = target === SCENES.length - 1;
-    const label = atEnd ? '↺ Start over' : 'Zoom out →';
+    stepBtns.forEach((b, i) => (i === at ? b.setAttribute('aria-current', 'step') : b.removeAttribute('aria-current')));
+    backBtn.disabled = at === 0;
+    const atEnd = at === SCENES.length - 1;
+    const label = atEnd ? '\u21BA Start over' : 'Zoom out \u2192';
     if (nextBtn.textContent !== label) nextBtn.textContent = label;
+    hint.classList.toggle('gone', window.scrollY > 30);
   }
 
-  function go(i) { target = clamp(i, 0, SCENES.length - 1); }
-  function next() { go(target === SCENES.length - 1 ? 0 : target + 1); }
-  function back() { go(target - 1); }
+  // Buttons, keys and the auto tour glide the page to a step at a gentle,
+  // zoom-friendly pace (native smooth scrolling is too quick for this).
+  let tween = null;
+  function scrollToStep(i) {
+    i = clamp(i, 0, SCENES.length - 1);
+    const from = window.scrollY, to = i * STEP;
+    const dist = Math.abs(to - from) / STEP;
+    if (dist < 0.001) return;
+    const dur = reducedMotion ? 1 : 1000 * clamp(2.4 * Math.sqrt(dist), 1.2, 6);
+    tween = { from, to, start: performance.now(), dur };
+  }
+  function endTween() { tween = null; }
+
+  // When hands-on scrolling pauses partway through a zoom, finish the zoom in
+  // the direction the reader was going (or back, if they barely started).
+  let lastY = 0, dir = 1, idle = 0;
+  window.addEventListener('scroll', () => {
+    const y = window.scrollY;
+    if (!tween && y !== lastY) { dir = Math.sign(y - lastY) || dir; idle = performance.now(); }
+    lastY = y;
+  }, { passive: true });
+  function tickSettle(now) {
+    if (tween || !idle || now - idle < 350 || touching) return;
+    idle = 0;
+    const sp = scrollPos(), base = Math.floor(sp), frac = sp - base;
+    if (frac < 0.002 || frac > 0.998) return;
+    const goal = dir > 0 ? (frac > 0.12 ? base + 1 : base) : (frac < 0.88 ? base : base + 1);
+    const from = window.scrollY, to = goal * STEP;
+    tween = { from, to, start: now, dur: 1000 * clamp(2.4 * (Math.abs(to - from) / STEP), 0.35, 2.4) };
+  }
+  let touching = false;
+  window.addEventListener('touchstart', () => { touching = true; }, { passive: true });
+  window.addEventListener('touchend', () => { touching = false; idle = performance.now(); }, { passive: true });
+  function tickScrollTween(now) {
+    if (!tween) return;
+    const u = clamp((now - tween.start) / tween.dur, 0, 1);
+    window.scrollTo(0, tween.from + (tween.to - tween.from) * ease(u));
+    if (u >= 1) endTween();
+  }
+  // Any hands-on scrolling takes over from a running glide.
+  ['wheel', 'touchstart'].forEach((ev) => window.addEventListener(ev, () => { if (tween) endTween(); stopAuto(); }, { passive: true }));
+
+  const current = () => Math.round(scrollPos());
+  function go(i) { scrollToStep(i); }
+  function next() { go(current() === SCENES.length - 1 ? 0 : current() + 1); }
+  function back() { go(current() - 1); }
 
   let auto = false, autoWait = 0;
   function stopAuto() { auto = false; autoBtn.setAttribute('aria-pressed', 'false'); autoBtn.innerHTML = '&#9654; Auto tour'; }
   function startAuto() { auto = true; autoWait = 1.2; autoBtn.setAttribute('aria-pressed', 'true'); autoBtn.innerHTML = '&#10074;&#10074; Pause'; }
   function tickAuto(dt) {
-    if (!auto || pos !== target) return;
+    if (!auto || tween || Math.abs(pos - scrollPos()) > 0.01) return;
     autoWait -= dt;
-    if (autoWait <= 0) { next(); autoWait = target === 0 ? 3 : 6.5; }
+    if (autoWait <= 0) { next(); autoWait = current() === SCENES.length - 1 ? 3 : 6.5; }
   }
 
   nextBtn.addEventListener('click', () => { stopAuto(); next(); });
   backBtn.addEventListener('click', () => { stopAuto(); back(); });
   autoBtn.addEventListener('click', () => (auto ? stopAuto() : startAuto()));
-  canvas.addEventListener('click', () => { stopAuto(); if (target < SCENES.length - 1) next(); });
+  canvas.addEventListener('click', () => { stopAuto(); if (current() < SCENES.length - 1) next(); });
 
   window.addEventListener('keydown', (e) => {
     if (e.target.closest && e.target.closest('button') && (e.key === ' ' || e.key === 'Enter')) return;
-    if (['ArrowRight', 'ArrowDown', ' ', 'PageDown'].includes(e.key)) { e.preventDefault(); stopAuto(); if (target < SCENES.length - 1) next(); }
+    if (['ArrowRight', 'ArrowDown', ' ', 'PageDown'].includes(e.key)) { e.preventDefault(); stopAuto(); if (current() < SCENES.length - 1) next(); }
     else if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)) { e.preventDefault(); stopAuto(); back(); }
-    else if (e.key === 'Home') { stopAuto(); go(0); }
-    else if (e.key === 'End') { stopAuto(); go(SCENES.length - 1); }
+    else if (e.key === 'Home') { e.preventDefault(); stopAuto(); go(0); }
+    else if (e.key === 'End') { e.preventDefault(); stopAuto(); go(SCENES.length - 1); }
   });
-
-  let wheelLock = 0;
-  window.addEventListener('wheel', (e) => {
-    const now = performance.now();
-    if (now < wheelLock || Math.abs(e.deltaY) < 8) return;
-    wheelLock = now + 900;
-    stopAuto();
-    if (e.deltaY > 0) { if (target < SCENES.length - 1) next(); } else back();
-  }, { passive: true });
 
   // ---------------------------------------------------------------------------
   // Layout
@@ -1292,6 +1332,16 @@
     C.x = W / 2;
     C.y = top + avail / 2;
     U = Math.max(70, Math.min(W * 0.43, avail * 0.44));
+
+    // Scroll length per step. Mobile browsers change innerHeight as the URL bar
+    // shows/hides, so only re-measure on big changes to keep the zoom steady.
+    const step = Math.max(500, Math.round(H * 1.1));
+    if (Math.abs(step - STEP) > 150 || !scroller.style.height) {
+      const p = window.scrollY / STEP;
+      STEP = step;
+      scroller.style.height = `${(SCENES.length - 1) * STEP + H}px`;
+      window.scrollTo(0, p * STEP);
+    }
   }
   window.addEventListener('resize', resize);
   if (window.ResizeObserver) new ResizeObserver(resize).observe($('panel'));

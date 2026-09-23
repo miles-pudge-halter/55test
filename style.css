@@ -13,14 +13,13 @@
 
 * { box-sizing: border-box; }
 
-html, body {
-  margin: 0;
-  height: 100%;
-  overflow: hidden;
-}
+html, body { margin: 0; }
+
+html { overscroll-behavior-y: none; }
 
 body {
   background-color: var(--paper);
+  background-attachment: fixed;
   background-image:
     linear-gradient(90deg, transparent 54px, var(--margin) 54px, var(--margin) 56px, transparent 56px),
     linear-gradient(var(--rule) 1px, transparent 1px);
@@ -36,7 +35,7 @@ body {
   width: 100%;
   height: 100%;
   cursor: pointer;
-  touch-action: manipulation;
+  touch-action: pan-y;
 }
 
 header {
@@ -99,6 +98,19 @@ h1 {
   flex-direction: column;
   gap: 10px;
 }
+
+#hint {
+  align-self: center;
+  font-family: var(--hand);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--accent);
+  transition: opacity 0.4s ease;
+}
+#hint span { display: inline-block; animation: bob 1.2s ease-in-out infinite; }
+#hint.gone { opacity: 0; pointer-events: none; }
+@keyframes bob { 50% { transform: translateY(5px); } }
+@media (prefers-reduced-motion: reduce) { #hint span { animation: none; } }
 
 #card {
   background: var(--card);

@@ -15,8 +15,9 @@ python3 -m http.server 8000
 
 ## Controls
 
-- **Zoom out →** / **← Back** buttons, or click the drawing
-- Arrow keys, space, or the mouse wheel
+- **Scroll** (mouse wheel, trackpad or swipe) to zoom out and back in. The zoom follows your scroll,
+  and if you stop halfway it glides on to the next step in the direction you were going
+- **Zoom out →** / **← Back** buttons, clicking the drawing, arrow keys or space jump a whole step
 - **Auto tour** plays the whole trip on a loop
 - Jump to any step with the tabs at the top
 

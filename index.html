@@ -4,13 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Zoom Out Doodle</title>
-  <meta name="description" content="A hand-drawn, step-by-step zoom from Earth to the Solar System, the Milky Way and the whole observable universe.">
+  <meta name="description" content="A hand-drawn, scroll-driven zoom from Bangkok out to Thailand, Asia, Earth, the Solar System, the Milky Way and the whole observable universe.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Patrick+Hand&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <div id="scroller" aria-hidden="true"></div>
   <canvas id="sky" aria-hidden="true"></canvas>
 
   <header id="top">
@@ -19,9 +20,10 @@
   </header>
 
   <section id="panel">
+    <div id="hint">scroll to zoom out <span>&darr;</span></div>
     <article id="card" aria-live="polite">
-      <div class="kicker" id="kicker">Step 1 of 4</div>
-      <h2 id="title">Planet Earth</h2>
+      <div class="kicker" id="kicker">Step 1 of 7</div>
+      <h2 id="title">Bangkok</h2>
       <p id="text"></p>
       <div class="scale" id="scale"></div>
     </article>
