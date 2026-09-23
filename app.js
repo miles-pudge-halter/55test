@@ -245,17 +245,52 @@
     return [x, -y, z];
   }
 
-  function stickFigure(x, y, h, t) {
+  // A stick figure. `hand` is where the inner hand reaches (to hold hands),
+  // `side` is which way the free arm waves, and `dress` adds a skirt + long hair.
+  function stickFigure(x, y, h, t, { hand, side = 1, dress = false, phase = 0 } = {}) {
     const head = h * 0.18;
-    const hip = [x, y - h * 0.42], neck = [x, y - h * 0.78];
-    const wave = Math.sin(t * 6) * 0.5;
+    const hip = [x, y - h * 0.42], neck = [x, y - h * 0.78], shoulder = [x, y - h * 0.7];
+    const wave = Math.sin(t * 6 + phase) * 0.5;
     const w = clamp(h * 0.08, 1.6, 2.6);
-    stroke([[x - h * 0.16, y], hip, [x + h * 0.16, y]], { width: w, j: 0.5 });
-    stroke([hip, neck], { width: w, j: 0.5 });
-    stroke([[x - h * 0.3, y - h * 0.55], [x, y - h * 0.7]], { width: w, j: 0.5 });
-    stroke([[x, y - h * 0.7], [x + Math.cos(-1.1 + wave) * h * 0.35, y - h * 0.7 + Math.sin(-1.1 + wave) * h * 0.35]], { width: w, j: 0.5 });
-    circ(x, y - h * 0.78 - head, head, { fill: '#ffe8d6', wash: 1, stroke: INK, width: w, passes: 1, j: 0.5, n: 10 });
+    const o = { width: w, j: 0.5 };
+    const hy = y - h * 0.78 - head;
+    if (dress) {
+      stroke([[x - head * 0.9, hy - head * 0.4], [x - head * 1.3, hy + head * 0.6], [x - head * 1.2, hy + head * 1.6]], { color: '#6f4518', width: w * 1.3, j: 0.4 });
+      stroke([[x + head * 0.9, hy - head * 0.4], [x + head * 1.3, hy + head * 0.6], [x + head * 1.2, hy + head * 1.6]], { color: '#6f4518', width: w * 1.3, j: 0.4 });
+    }
+    if (dress) {
+      blob([[x, y - h * 0.72], [x + h * 0.22, y - h * 0.16], [x - h * 0.22, y - h * 0.16]], { fill: '#ff8fab', wash: 0.9, stroke: INK, width: w, passes: 1, j: 0.5 });
+      stroke([[x - h * 0.1, y - h * 0.16], [x - h * 0.13, y]], o);
+      stroke([[x + h * 0.1, y - h * 0.16], [x + h * 0.13, y]], o);
+    } else {
+      stroke([[x - h * 0.16, y], hip, [x + h * 0.16, y]], o);
+      stroke([hip, neck], o);
+    }
+    const wa = side > 0 ? -0.45 + wave * 0.7 : -Math.PI + 0.45 - wave * 0.7;
+    stroke([shoulder, [x + Math.cos(wa) * h * 0.44, y - h * 0.7 + Math.sin(wa) * h * 0.44]], o);
+    stroke([shoulder, hand || [x - side * h * 0.3, y - h * 0.55]], o);
+    circ(x, hy, head, { fill: '#ffe8d6', wash: 1, stroke: INK, width: w, passes: 1, j: 0.5, n: 10 });
   }
+
+  function heart(x, y, s, o = {}) {
+    const pts = [];
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * TAU;
+      pts.push([x + s * 16 * Math.pow(Math.sin(a), 3) / 16, y - s * (13 * Math.cos(a) - 5 * Math.cos(2 * a) - 2 * Math.cos(3 * a) - Math.cos(4 * a)) / 16]);
+    }
+    blob(pts, { fill: RED, wash: 0.9, stroke: RED, width: 1.6, passes: 1, j: 0.4, ...o });
+  }
+
+  // The two of us, holding hands on top of the world, with a little heart.
+  function couple(x, y, h, t, R) {
+    const gap = h * 0.3;
+    const drop = (gap * gap) / (2 * R);
+    const hands = [x, y - h * 0.5 + drop];
+    stickFigure(x - gap, y + drop, h, t, { hand: hands, side: -1 });
+    stickFigure(x + gap, y + drop, h * 0.94, t, { hand: hands, side: 1, dress: true, phase: 1.3 });
+    heart(x, y - h * 1.25 + Math.sin(t * 2.5) * h * 0.06, h * 0.16 * (1 + 0.08 * Math.sin(t * 5)));
+  }
+
 
   const earthScene = {
     name: 'Earth',
@@ -328,14 +363,15 @@
 
       if (!moonBehind) drawMoon();
 
-      // A tiny person waving from the top of the world
+      // The two of us waving from the top of the world
       if (R > 50) {
         seed(33);
-        stickFigure(cx, cy - R + 2, clamp(R * 0.17, 12, 34), t);
+        const ch = clamp(R * 0.24, 16, 46);
+        couple(cx, cy - R + 2, ch, t, R);
         const lx = cx + R * 0.55, ly = cy - R * 1.12 - fs;
-        label('you are here!', lx + fs * 1.4, ly - fs * 0.2, { size: fs, color: RED, a: L.a, rot: -0.05 });
+        label('we are here!', lx + fs * 1.4, ly - fs * 0.2, { size: fs, color: RED, a: L.a, rot: -0.05 });
         seed(34);
-        if (L.a > 0.01) arrow(lx, ly + fs * 0.4, cx + R * 0.08, cy - R - clamp(R * 0.1, 8, 20), { color: RED, bend: -0.3, a: L.a });
+        if (L.a > 0.01) arrow(lx, ly + fs * 0.4, cx + ch * 0.75, cy - R - ch * 0.75, { color: RED, bend: -0.3, a: L.a });
       }
       label('Earth', cx - R * 0.95, cy + R * 0.95, { size: fs * 1.4, a: L.a, rot: -0.08 });
     },
