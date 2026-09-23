@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Zoom Out Doodle</title>
+  <meta name="description" content="A hand-drawn, step-by-step zoom from Earth to the Solar System, the Milky Way and the whole observable universe.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Patrick+Hand&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="sky" aria-hidden="true"></canvas>
+
+  <header id="top">
+    <h1>Zoom&nbsp;Out!</h1>
+    <nav id="steps" aria-label="Jump to a step"></nav>
+  </header>
+
+  <section id="panel">
+    <article id="card" aria-live="polite">
+      <div class="kicker" id="kicker">Step 1 of 4</div>
+      <h2 id="title">Planet Earth</h2>
+      <p id="text"></p>
+      <div class="scale" id="scale"></div>
+    </article>
+    <div id="controls">
+      <button id="back" type="button" aria-label="Zoom back in">&larr; Back</button>
+      <button id="auto" type="button" aria-pressed="false">&#9654; Auto tour</button>
+      <button id="next" type="button" class="primary">Zoom out &rarr;</button>
+    </div>
+  </section>
+
+  <script src="app.js"></script>
+</body>
+</html>

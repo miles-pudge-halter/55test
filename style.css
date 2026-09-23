@@ -1,0 +1,191 @@
+:root {
+  --paper: #fdfaf1;
+  --rule: #dfe8f5;
+  --margin: #f3c4c4;
+  --ink: #2b2d42;
+  --muted: #5c6178;
+  --accent: #e63946;
+  --card: rgba(255, 253, 246, 0.92);
+  --hand: "Caveat", "Comic Sans MS", cursive;
+  --print: "Patrick Hand", "Comic Sans MS", cursive;
+  --wobbly: 255px 15px 225px 15px / 15px 225px 15px 255px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  background-color: var(--paper);
+  background-image:
+    linear-gradient(90deg, transparent 54px, var(--margin) 54px, var(--margin) 56px, transparent 56px),
+    linear-gradient(var(--rule) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 30px;
+  color: var(--ink);
+  font-family: var(--print);
+  -webkit-tap-highlight-color: transparent;
+}
+
+#sky {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 16px;
+  padding: max(10px, env(safe-area-inset-top)) 16px 6px 70px;
+  pointer-events: none;
+}
+
+h1 {
+  margin: 0;
+  font-family: var(--hand);
+  font-weight: 700;
+  font-size: clamp(30px, 5vw, 46px);
+  line-height: 1;
+  transform: rotate(-2deg);
+}
+
+#steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  pointer-events: auto;
+}
+
+#steps button {
+  font-family: var(--hand);
+  font-size: 19px;
+  font-weight: 700;
+  padding: 2px 12px;
+  color: var(--muted);
+  background: transparent;
+  border: 2px dashed transparent;
+  border-radius: var(--wobbly);
+  cursor: pointer;
+}
+
+#steps button[aria-current="step"] {
+  color: var(--ink);
+  border-color: var(--ink);
+  border-style: solid;
+  background: #fff3b0;
+}
+
+#panel {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: min(640px, 100% - 32px);
+  padding-bottom: max(14px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#card {
+  background: var(--card);
+  border: 2.5px solid var(--ink);
+  border-radius: var(--wobbly);
+  padding: 12px 20px 12px;
+  box-shadow: 4px 5px 0 rgba(43, 45, 66, 0.18);
+  min-height: 170px;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+#card.swap { opacity: 0; transform: translateY(8px) rotate(-0.6deg); }
+
+.kicker {
+  font-family: var(--hand);
+  font-size: 20px;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+#card h2 {
+  margin: 0 0 4px;
+  font-family: var(--hand);
+  font-size: 36px;
+  line-height: 1;
+}
+
+#card p {
+  margin: 0 0 6px;
+  font-size: 18px;
+  line-height: 1.35;
+}
+
+#card b {
+  background: linear-gradient(transparent 55%, #fff3b0 55%);
+  font-weight: normal;
+}
+
+.scale {
+  font-size: 16px;
+  color: var(--muted);
+}
+
+#controls {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+#controls button {
+  font-family: var(--hand);
+  font-size: 22px;
+  font-weight: 700;
+  padding: 4px 18px;
+  color: var(--ink);
+  background: #fff;
+  border: 2.5px solid var(--ink);
+  border-radius: var(--wobbly);
+  box-shadow: 3px 3px 0 var(--ink);
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+#controls button:hover:not(:disabled) { transform: rotate(-1.5deg) translateY(-1px); }
+#controls button:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
+#controls button:disabled { opacity: 0.35; cursor: default; }
+#controls .primary { background: #ffd166; }
+#controls #auto[aria-pressed="true"] { background: #c8f7c5; }
+
+button:focus-visible { outline: 3px dashed var(--accent); outline-offset: 3px; }
+
+@media (max-width: 560px) {
+  header { padding-left: 16px; justify-content: center; }
+  #steps button { font-size: 16px; padding: 1px 6px; }
+  #card { min-height: 190px; padding: 10px 14px; }
+  #card h2 { font-size: 30px; }
+  #card p { font-size: 16px; }
+  .scale { font-size: 14px; }
+  #controls { gap: 8px; }
+  #controls button { font-size: 18px; padding: 3px 10px; white-space: nowrap; }
+  #steps { justify-content: center; gap: 2px; }
+  #steps button { white-space: nowrap; }
+  body { background-size: 100% 100%, 100% 26px; }
+  body { background-image: linear-gradient(var(--rule) 1px, transparent 1px); background-size: 100% 26px; }
+}
+
+@media (max-height: 560px) and (min-width: 561px) {
+  #card { min-height: 0; }
+  #card p { font-size: 16px; }
+}
