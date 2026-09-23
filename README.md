@@ -1,7 +1,7 @@
 # Zoom Out!
 
 A hand-drawn, doodle-style web app that zooms out step by step:
-**Earth → Solar System → Milky Way → the observable Universe**.
+**Bangkok → Thailand → Asia → Earth → Solar System → Milky Way → the observable Universe**.
 
 It's plain HTML, CSS and a `<canvas>`. There's no build step and no dependencies.
 

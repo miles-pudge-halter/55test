@@ -107,8 +107,9 @@
 
   // Pencil hatching inside the current clip (or inside `clip` when given).
   function hatch(clip, cx, cy, r, o) {
-    let { color = INK, spacing = 6, angle = -0.8, width = 1.2, a = 0.7 } = o;
-    if (r > 1500) spacing *= r / 1500;
+    const { color = INK, spacing = 6, angle = -0.8, width = 1.2, a = 0.7 } = o;
+    const diag = Math.hypot(W, H);
+    if (r > diag) { cx = W / 2; cy = H / 2; r = diag / 2; } // the shape is clipped anyway
     ctx.save();
     if (clip) { clip(); ctx.clip(); }
     ctx.strokeStyle = color;
@@ -170,7 +171,7 @@
   }
 
   function label(str, x, y, o = {}) {
-    const { size = 20, color = INK, align = 'center', a = 1, rot = 0, fit = false } = o;
+    const { size = 20, color = INK, align = 'center', a = 1, rot = 0, fit = false, bg = false } = o;
     if (a <= 0.01 || size < 6) return;
     alpha(a);
     ctx.fillStyle = color;
@@ -181,6 +182,17 @@
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(rot + jit(0.012));
+    if (bg) {
+      // a scrap of paper behind the text so it stays readable over busy doodles
+      const w = ctx.measureText(str).width, x0 = align === 'left' ? 0 : align === 'right' ? -w : -w / 2;
+      ctx.fillStyle = '#fdfaf1';
+      alpha(a * 0.85);
+      ctx.beginPath();
+      ctx.roundRect ? ctx.roundRect(x0 - 5, -size * 0.55, w + 10, size * 1.1, 6) : ctx.rect(x0 - 5, -size * 0.55, w + 10, size * 1.1);
+      ctx.fill();
+      alpha(a);
+      ctx.fillStyle = color;
+    }
     ctx.fillText(str, 0, 0);
     ctx.restore();
   }
@@ -205,7 +217,7 @@
   }
   function drawCallout(text, sx, sy, gap, c, o) {
     arrow(c.lx, c.ly, sx + c.dx * gap, sy + c.dy * gap, { color: o.color, a: o.a, bend: o.bend ?? 0.2 });
-    label(text, c.tx, c.ty, { align: c.align, size: o.size, color: o.color, a: o.a });
+    label(text, c.tx, c.ty, { align: c.align, size: o.size, color: o.color, a: o.a, bg: true });
   }
 
   // Labels shrink with their scene and vanish when it is tiny or huge.
@@ -216,9 +228,55 @@
   const fontBase = () => clamp(U * 0.1, 16, 26);
 
   // ---------------------------------------------------------------------------
-  // Scene 1: Earth
+  // Earth geography (shared by the Earth, Asia and Thailand scenes)
   // ---------------------------------------------------------------------------
-  const CONTINENTS = [
+  // Rough hand-traced coastlines as [lon, lat] points. Asia gets extra detail
+  // because we zoom right into it.
+  const EURASIA = [
+    [35, 32], [34, 28], [38, 22], [43, 13], [45, 13], [52, 16], [57, 19], [59, 22], [56, 26], [51, 24], [50, 27], [48, 30],
+    [50, 30], [54, 27], [57, 26], [62, 25], [67, 24.5], [69, 22.5], [72, 21], [73, 17], [74.5, 13], [76, 9], [77.5, 8],
+    [79.5, 10], [80, 13], [80.3, 15.8], [82.5, 17], [85, 19.5], [87, 21.5], [89, 22], [91.5, 22.5], [92.3, 20.5], [94, 18],
+    [94.5, 16], [97.5, 16.5], [98, 13.5], [98.5, 10], [98.3, 8], [100, 6.5], [100.3, 4], [101.5, 2.7], [103.5, 1.3],
+    [104.2, 1.5], [103.4, 4], [103, 5.5], [101.5, 6.8], [100.3, 8.4], [99.2, 10.3], [99.2, 12.5], [100, 13.4], [100.6, 13.5],
+    [101, 12.7], [102.2, 12.2], [102.8, 11.5], [103.5, 10.6], [104.5, 10.4], [105, 9], [106.5, 9.5], [106.8, 10.4],
+    [108.9, 11.3], [109.3, 13], [108.8, 15.4], [106.6, 17.4], [105.7, 19], [106.7, 20.7], [108, 21.6], [110, 21],
+    [111.5, 21.6], [113.5, 22.2], [116.5, 23], [118.5, 24.6], [120, 26.5], [121.6, 28.5], [122, 30], [121, 32], [120.5, 34],
+    [119, 35], [120.5, 36.5], [122.5, 37], [121, 37.8], [118.5, 38], [117.7, 39], [119, 39.5], [121.5, 40.8], [122.2, 40.4],
+    [121.5, 39], [124, 39.8], [125.3, 37.7], [126.5, 34.5], [129.3, 35.2], [129.5, 37], [128.5, 38.6], [127.5, 39.8],
+    [129.7, 41], [130.7, 42.4], [133, 42.8], [135.5, 44], [138.5, 47], [140.5, 50], [140.5, 53], [137, 54], [135, 55],
+    [138, 56.5], [143, 59.3], [150, 59.5], [155, 62], [160, 61], [163, 57], [162, 54.5], [156.5, 51], [156, 57], [160, 60],
+    [165, 60], [170, 62], [178, 64.5], [180, 68], [170, 70], [160, 70], [140, 72], [130, 71], [113, 73.5], [105, 77.5],
+    [95, 76], [80, 73], [70, 73], [66, 69], [58, 70], [45, 68], [35, 69], [30, 70], [20, 70], [10, 63], [5, 61], [8, 58],
+    [10, 54], [3, 51], [-2, 48], [-1, 44], [-9, 43], [-9, 37], [-5, 36], [0, 38], [3, 42], [8, 44], [12, 44], [16, 40],
+    [16, 38], [18, 40], [13, 45], [19, 42], [22, 37], [24, 38], [26, 40], [28, 41], [29, 41], [28, 36.5], [32, 36.5], [36, 36.5],
+  ];
+  const ISLANDS = [
+    // Japan (Honshu/Kyushu, Hokkaido)
+    [[130, 31], [131.5, 31.5], [132, 33.5], [135, 33.5], [137, 34.5], [140, 35], [141, 38], [142, 40], [141.5, 41.5], [140, 40.5], [139.5, 38], [137, 37], [136, 36], [133, 35.5], [131, 34.5]],
+    [[140, 41.8], [141.5, 42.5], [143.5, 42], [145.5, 43.3], [142, 45.4], [141.5, 43.8], [140, 43]],
+    // Taiwan, Hainan, Sri Lanka
+    [[120.2, 22.5], [121, 21.9], [121.9, 24.5], [121.5, 25.3], [120.1, 23.5]],
+    [[108.7, 19.2], [110.5, 20.1], [111, 19.6], [110, 18.2], [108.7, 18.5]],
+    [[79.8, 6.5], [80.2, 9.8], [81.9, 7.5], [81.2, 6.2]],
+    // Sumatra, Java, Borneo, Sulawesi
+    [[95.3, 5.6], [97.5, 5.2], [100.5, 2], [104, -1], [106, -3], [105.8, -5.8], [104, -5], [102, -4], [100, -1], [98.5, 1.5]],
+    [[105.3, -6.8], [106.5, -6], [110, -6.9], [112.7, -6.9], [114.5, -7.8], [114.2, -8.7], [110, -8.1], [106.5, -7.4]],
+    [[109, 1.5], [109.6, 2], [111, 1.8], [113, 3.2], [115.5, 5.2], [117, 7], [119, 5.2], [118, 4.3], [118.5, 1], [117.5, 0], [116.5, -2.5], [116, -4], [114.5, -3.5], [111, -3], [110, -1.5], [109, 0]],
+    [[119.5, -5.5], [120.5, -2], [120, 0.5], [121, 1.2], [124.5, 1.4], [122.5, -0.5], [121.5, -1], [123, -4.5], [121.5, -4.8], [120.5, -5.5]],
+    // Philippines (Luzon, Mindanao), New Guinea
+    [[120, 18.5], [122.2, 18.5], [122, 16], [124, 13.8], [123.5, 13], [121, 13.8], [120.5, 15], [119.8, 16.2]],
+    [[122, 7], [123.5, 8], [125.5, 9.5], [126.5, 7], [125.5, 5.8], [124, 6.3]],
+    [[131, -1], [135, -3.3], [138, -1.6], [141, -2.6], [145, -4.5], [147.5, -6], [150, -10.5], [147, -9.5], [143, -9], [141, -9.1], [138, -8.3], [137.5, -5], [133, -4], [132, -2.5]],
+  ];
+  const THAILAND = [
+    [99.9, 20.4], [100.5, 20.2], [100.6, 19.5], [101.2, 19.5], [101, 18.4], [101.6, 17.8], [102.6, 17.9], [103.3, 18.4],
+    [104, 18.3], [104.8, 17.4], [104.8, 16.2], [105.6, 15.8], [105.5, 14.5], [104.3, 14.4], [102.9, 14.2], [102.5, 13],
+    [102.9, 11.6], [102.3, 12.2], [101.7, 12.7], [100.9, 12.7], [100.9, 13.4], [100.5, 13.5], [100, 13.3], [99.95, 12.5],
+    [99.5, 11], [99.2, 10], [99.9, 9.2], [100.3, 8.3], [100.6, 7.1], [101.3, 6.8], [102, 6.2], [101.1, 5.7], [100.6, 6.4],
+    [100.1, 6.5], [99.7, 6.9], [99.3, 7.5], [98.3, 8.2], [98.3, 9], [98.7, 10.3], [98.8, 11.7], [99.2, 12.3], [99.2, 13.2],
+    [98.2, 15], [98.6, 16.2], [97.4, 18.5], [97.8, 19.6], [98.5, 19.8], [99.4, 20.2],
+  ];
+  const WORLD = [
     // North America
     [[-165, 65], [-140, 70], [-100, 72], [-75, 65], [-60, 50], [-80, 30], [-97, 18], [-85, 10], [-105, 22], [-118, 33], [-125, 48], [-150, 58]],
     // Greenland
@@ -227,13 +285,18 @@
     [[-80, 10], [-60, 8], [-35, -7], [-40, -22], [-58, -38], [-70, -54], [-75, -40], [-72, -18], [-81, -5]],
     // Africa
     [[-17, 21], [-5, 35], [10, 37], [32, 31], [43, 12], [51, 11], [40, -15], [32, -28], [20, -35], [12, -18], [8, 4], [-8, 5], [-17, 14]],
-    // Eurasia
-    [[-10, 36], [-9, 43], [0, 50], [10, 58], [25, 70], [60, 72], [100, 77], [140, 72], [170, 66], [160, 60], [140, 50], [122, 40], [120, 25], [105, 10], [100, 2], [80, 8], [72, 20], [57, 25], [48, 30], [35, 36], [26, 40], [15, 40], [3, 42]],
+    EURASIA,
     // Australia
     [[114, -22], [130, -12], [142, -11], [153, -27], [146, -39], [135, -35], [115, -34]],
+    ...ISLANDS,
   ];
   const ICE = Array.from({ length: 12 }, (_, i) => [i * 30, 76 + (i % 2) * 4]);
   const CLOUDS = [[-40, 20, 50], [60, -10, 40], [150, 35, 45], [-130, -25, 55], [10, 55, 35]];
+
+  // Home sweet home
+  const BKK = [100.5, 13.75];
+  const BKK_ROT = (BKK[0] * Math.PI) / 180; // Earth rotation that puts Bangkok front and centre
+  let spin = BKK_ROT; // current Earth rotation (advanced in frame())
 
   const TILT = 0.4;
   function project(lon, lat, rot) {
@@ -292,12 +355,280 @@
   }
 
 
+  // A polygon with near-sharp corners (tracePath rounds every vertex, so we
+  // add points hugging each corner).
+  function polyPts(corners) {
+    const out = [];
+    corners.forEach((a, i) => {
+      const b = corners[(i + 1) % corners.length];
+      const at = (u) => [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u];
+      out.push(a, at(0.08), at(0.5), at(0.92));
+    });
+    return out;
+  }
+
+  function peaks(x, y, s, n, a = 1) {
+    for (let k = 0; k < n; k++) {
+      const px = x + (k - (n - 1) / 2) * s * 1.1, py = y + (k % 2) * s * 0.35;
+      stroke([[px - s * 0.6, py], [px, py - s], [px + s * 0.6, py]], { color: '#6c584c', width: 1.8, a, j: 0.5 });
+    }
+  }
+
+  // Land masses for any view of the globe, with Thailand in pink.
+  function drawLand(proj, toS, sd) {
+    WORLD.forEach((poly, i) => {
+      const pr = poly.map(([lo, la]) => proj(lo, la));
+      if (Math.max(...pr.map((p) => p[2])) < 0.05) return;
+      seed(sd + i);
+      blob(pr.map(toS), { fill: '#b7e4c7', wash: 0.95, hatchColor: '#2d6a4f', spacing: 5, angle: 0.7, stroke: '#2d6a4f', width: 2, passes: 1 });
+    });
+    const th = THAILAND.map(([lo, la]) => proj(lo, la));
+    if (th[0][2] > 0.05) {
+      seed(sd + 60);
+      blob(th.map(toS), { fill: '#ffc2d1', wash: 0.95, hatchColor: RED, spacing: 4, angle: -0.6, stroke: RED, width: 2.2, passes: 1 });
+    }
+  }
+
+  // Close-up views of the globe, always centred on Bangkok.
+  const BKK_Y = project(BKK[0], BKK[1], BKK_ROT)[1];
+  function drawGlobeMap(v, Rg, sd) {
+    const GR = Rg * v.s, gx = v.x, gy = v.y - BKK_Y * GR;
+    const f = {
+      at: (lo, la) => { const p = project(lo, la, BKK_ROT); return [gx + p[0] * GR, gy + p[1] * GR, p[2]]; },
+    };
+    seed(sd);
+    const globe = GR < Math.hypot(W, H) * 1.5 ? circlePts(gx, gy, GR, 72) : null;
+    const ocean = () => { if (globe) tracePath(globe, true); else { ctx.beginPath(); ctx.rect(-20, -20, W + 40, H + 40); } };
+    alpha(0.7); ctx.fillStyle = '#a9def9'; ocean(); ctx.fill();
+    hatch(ocean, gx, gy, GR, { color: '#219ebc', spacing: 7, angle: -0.9, a: 0.5 });
+    ctx.save();
+    ocean();
+    ctx.clip();
+    drawLand((lo, la) => project(lo, la, BKK_ROT), (p) => [gx + p[0] * GR, gy + p[1] * GR], sd + 1);
+    ctx.restore();
+    if (globe) { seed(sd + 99); stroke(globe, { closed: true, width: 3, passes: 2, j: 1.4 }); }
+    return f;
+  }
+
+  function mapTagger(f, fs, L) {
+    return (lo, la, txt, o = {}) => {
+      const p = f.at(lo, la);
+      if (p[2] > 0.1) label(txt, p[0], p[1], { size: fs * (o.k || 0.9), a: L.a * (o.a || 0.85), color: o.color || '#1b4332', rot: o.rot || 0 });
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Scene: Asia
+  // ---------------------------------------------------------------------------
+  const ASIA_R = 1.35, THAI_R = 7;
+  const asiaScene = {
+    name: 'Asia',
+    K: THAI_R / ASIA_R,
+    anchor: () => [0, 0],
+    draw(v) {
+      if (!onScreen(v.x, v.y, v.s * ASIA_R * 2)) return;
+      const L = labelFx(v), fs = fontBase() * L.k;
+      const f = drawGlobeMap(v, ASIA_R, 700);
+      if (L.a <= 0.01) return;
+      seed(740);
+      const tag = mapTagger(f, fs, L);
+      tag(100, 55, 'RUSSIA');
+      tag(103, 35, 'CHINA');
+      tag(78.5, 21, 'INDIA');
+      tag(114, -2, 'INDONESIA', { k: 0.72 });
+      tag(137, 40, 'JAPAN', { k: 0.7 });
+      tag(80, -4, 'Indian Ocean', { color: '#1d6fa5' });
+      tag(142, 15, 'Pacific Ocean', { color: '#1d6fa5' });
+      const hm = f.at(86, 29.5);
+      if (hm[2] > 0.1) peaks(hm[0], hm[1], clamp(fs * 0.5, 6, 13), 5, L.a);
+      tag(86, 33, 'Himalayas', { k: 0.7, color: '#6c584c' });
+      const [tx, ty] = f.at(101.5, 15);
+      const co = planCallout('Thailand', tx, ty, 0.95, 0.3, clamp(v.s * 0.5, 60, 160), fs * 1.1);
+      drawCallout('Thailand', tx, ty, 10, co, { color: RED, a: L.a, size: fs * 1.1 });
+    },
+  };
+
+  // ---------------------------------------------------------------------------
+  // Scene: Thailand
+  // ---------------------------------------------------------------------------
+  const BKK_K = 18;
+  const thailandScene = {
+    name: 'Thailand',
+    K: BKK_K,
+    anchor: () => [0, 0],
+    draw(v, t) {
+      if (!onScreen(v.x, v.y, v.s * 2)) return;
+      const L = labelFx(v), fs = fontBase() * L.k;
+      const f = drawGlobeMap(v, THAI_R, 800);
+      if (L.a > 0.01) {
+        seed(840);
+        const tag = mapTagger(f, fs, L);
+        tag(96.3, 21, 'MYANMAR', { k: 0.75 });
+        tag(103.6, 19.4, 'LAOS', { k: 0.75 });
+        tag(104.9, 12.9, 'CAMBODIA', { k: 0.7 });
+        tag(107.7, 14.5, 'VIETNAM', { k: 0.7, rot: -1.2 });
+        tag(102.3, 4.2, 'MALAYSIA', { k: 0.75 });
+        tag(101.9, 9.4, 'Gulf of Thailand', { color: '#1d6fa5', k: 0.8 });
+        tag(95.6, 9.3, 'Andaman Sea', { color: '#1d6fa5', k: 0.8 });
+        tag(102.4, 16.2, 'THAILAND', { k: 1.3, color: RED, a: 1 });
+        const pk = f.at(99.6, 19.3);
+        peaks(pk[0], pk[1], clamp(fs * 0.45, 5, 12), 3, L.a);
+        [[98.98, 18.79, 'Chiang Mai', 1], [98.39, 7.88, 'Phuket', -1]].forEach(([lo, la, name, side]) => {
+          const [x, y] = f.at(lo, la);
+          circ(x, y, 3.5, { dot: INK, a: L.a });
+          label(name, x + side * 8, y, { size: fs * 0.8, a: L.a, align: side > 0 ? 'left' : 'right' });
+        });
+      }
+      // Bangkok: the spot we zoomed out of
+      seed(850);
+      const r = Math.max((1.3 / BKK_K) * v.s, 4);
+      circ(v.x, v.y, r, { fill: '#ffd166', wash: 1, stroke: RED, width: 2.2, passes: 1, dot: RED });
+      if (L.a > 0.01) {
+        heart(v.x, v.y - r - 12, clamp(fs * 0.4, 6, 11), { a: L.a });
+        const co = planCallout('Bangkok (home!)', v.x, v.y, -0.95, -0.3, clamp(v.s * 0.45, 60, 150), fs);
+        drawCallout('Bangkok (home!)', v.x, v.y, r + 6, co, { color: RED, a: L.a, size: fs, bend: 0.25 });
+      }
+    },
+  };
+
+  // ---------------------------------------------------------------------------
+  // Scene: Bangkok (side-on doodle of the riverside skyline, with us in it)
+  // ---------------------------------------------------------------------------
+  function prang(X, Y, cx, base, w, h, a) {
+    const P = (u, k) => [X(cx + u * w), Y(base - k * h)];
+    const pts = polyPts([P(-0.5, 0), P(-0.42, 0.25), P(-0.3, 0.55), P(-0.16, 0.8), P(-0.05, 0.93), P(0.05, 0.93), P(0.16, 0.8), P(0.3, 0.55), P(0.42, 0.25), P(0.5, 0)]);
+    blob(pts, { fill: '#fefae0', wash: 1, hatchColor: '#e9c46a', spacing: 4, angle: 0.8, width: 2, passes: 1, a });
+    [[0.25, 0.42], [0.55, 0.3], [0.8, 0.16]].forEach(([k, u]) => stroke([P(-u, k), P(u, k)], { color: '#e76f51', width: 1.8, a }));
+    stroke([P(0, 0.93), P(0, 1.1)], { width: 2, a });
+    ['#f72585', '#4361ee', '#2a9d8f'].forEach((c, i) => {
+      const [x, y] = P((i - 1) * 0.2, 0.4 + (i % 2) * 0.1);
+      alpha(a); ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x, y, Math.max(1.5, w * 0.02 * (X(1) - X(0))), 0, TAU); ctx.fill();
+    });
+  }
+
+  const BUILDINGS = [
+    [0.27, 0.12, 0.42, '#bde0fe'], [0.41, 0.1, 0.56, '#cdb4db'], [0.53, 0.12, 0.36, '#ffc8dd'],
+    [0.67, 0.1, 0.84, '#a2d2ff', 'mahanakhon'], [0.8, 0.12, 0.5, '#caffbf'], [0.94, 0.11, 0.68, '#ffd6a5', 'antenna'],
+    [1.07, 0.1, 0.4, '#bde0fe'],
+  ];
+
+  const bangkokScene = {
+    name: 'Bangkok',
+    draw(v, t) {
+      if (!onScreen(v.x, v.y, v.s * 1.4)) return;
+      const L = labelFx(v), fs = fontBase() * L.k;
+      const X = (x) => v.x + x * v.s, Y = (y) => v.y + y * v.s, S = (d) => d * v.s;
+      const G = 0.3; // riverbank line
+
+      // Sun
+      seed(600);
+      for (let i = 0; i < 10; i++) {
+        const ang = (i / 10) * TAU + t * 0.2;
+        stroke([[X(-0.95) + Math.cos(ang) * S(0.13), Y(-0.62) + Math.sin(ang) * S(0.13)], [X(-0.95) + Math.cos(ang) * S(0.18), Y(-0.62) + Math.sin(ang) * S(0.18)]], { color: '#f77f00', width: 2.5 });
+      }
+      circ(X(-0.95), Y(-0.62), S(0.1), { fill: '#ffd166', wash: 0.9, hatchColor: '#f77f00', spacing: 5, width: 2.4 });
+      label('phew, 35°C!', X(-0.95), Y(-0.4), { size: fs * 0.75, a: L.a, color: '#bc6c25', rot: -0.06 });
+
+      // Skyline
+      BUILDINGS.forEach(([x, w, h, c, kind], i) => {
+        seed(610 + i);
+        const x0 = X(x - w / 2), x1 = X(x + w / 2), top = Y(G - h), bot = Y(G);
+        blob(polyPts([[x0, bot], [x0, top], [x1, top], [x1, bot]]), { fill: c, wash: 0.9, width: 2, passes: 1, j: 0.8 });
+        alpha(0.55); ctx.strokeStyle = INK; ctx.lineWidth = 1.3; ctx.beginPath();
+        for (let yy = top + S(0.05); yy < bot - S(0.04); yy += S(0.065)) {
+          for (let xx = x0 + S(0.022); xx < x1 - S(0.03); xx += S(0.035)) {
+            ctx.moveTo(xx + jit(0.6), yy + jit(0.6)); ctx.lineTo(xx + S(0.016) + jit(0.6), yy + jit(0.6));
+          }
+        }
+        ctx.stroke();
+        if (kind === 'mahanakhon') {
+          const pts = [];
+          for (let k = 0; k <= 8; k++) pts.push([x1 - S(k % 2 ? 0.035 : 0.012), top + S(0.05 + k * 0.07)]);
+          stroke(pts, { width: 2, j: 0.5 });
+        }
+        if (kind === 'antenna') {
+          stroke([[X(x), top], [X(x), top - S(0.12)]], { width: 2 });
+          circ(X(x), top - S(0.12), 2.5, { dot: RED });
+        }
+      });
+
+      // Grand Palace
+      seed(630);
+      blob(polyPts([[X(-0.26), Y(G)], [X(-0.26), Y(G - 0.13)], [X(0), Y(G - 0.13)], [X(0), Y(G)]]), { fill: '#ffffff', wash: 1, width: 2, passes: 1, j: 0.8 });
+      [-0.22, -0.16, -0.1, -0.04].forEach((px) => stroke([[X(px), Y(G - 0.12)], [X(px), Y(G)]], { width: 1.4, a: 0.6 }));
+      blob(polyPts([[X(-0.3), Y(G - 0.13)], [X(0.04), Y(G - 0.13)], [X(-0.13), Y(G - 0.3)]]), { fill: '#e85d04', wash: 0.95, hatchColor: '#9d0208', spacing: 4, width: 2, passes: 1, j: 0.8 });
+      blob(polyPts([[X(-0.24), Y(G - 0.2)], [X(-0.02), Y(G - 0.2)], [X(-0.13), Y(G - 0.36)]]), { fill: '#2a9d8f', wash: 0.9, width: 2, passes: 1, j: 0.8 });
+      blob(polyPts([[X(-0.16), Y(G - 0.33)], [X(-0.1), Y(G - 0.33)], [X(-0.13), Y(G - 0.6)]]), { fill: '#ffb703', wash: 1, hatchColor: '#bc6c25', spacing: 3, width: 2, passes: 1, j: 0.6 });
+      stroke([[X(-0.3), Y(G - 0.13)], [X(-0.325), Y(G - 0.17)], [X(-0.31), Y(G - 0.195)]], { color: '#e09f3e', width: 2.4 });
+      stroke([[X(0.04), Y(G - 0.13)], [X(0.065), Y(G - 0.17)], [X(0.05), Y(G - 0.195)]], { color: '#e09f3e', width: 2.4 });
+
+      // Wat Arun
+      seed(640);
+      prang(X, Y, -0.86, G, 0.12, 0.36, 1);
+      prang(X, Y, -0.38, G, 0.12, 0.36, 1);
+      prang(X, Y, -0.62, G, 0.26, 0.78, 1);
+
+      // Palm tree
+      seed(650);
+      const trunk = [[X(-1.1), Y(G)], [X(-1.105), Y(G - 0.12)], [X(-1.12), Y(G - 0.24)], [X(-1.14), Y(G - 0.32)]];
+      stroke(trunk, { color: '#7f5539', width: clamp(S(0.02), 3, 7) });
+      [[-2.6, 0.13], [-1.9, 0.15], [-1.1, 0.15], [-0.4, 0.13], [0.3, 0.1]].forEach(([ang, len]) => {
+        const sway = Math.sin(t * 1.5) * 0.08, a2 = ang + sway;
+        const ox = X(-1.14), oy = Y(G - 0.32);
+        stroke([[ox, oy], [ox + Math.cos(a2) * S(len) * 0.6, oy + Math.sin(a2) * S(len) * 0.6 - S(0.02)], [ox + Math.cos(a2) * S(len), oy + Math.sin(a2) * S(len) + S(0.03)]], { color: '#2d6a4f', width: clamp(S(0.014), 2.5, 5) });
+      });
+
+      // Riverbank and the Chao Phraya
+      seed(660);
+      blob(polyPts([[X(-1.5), Y(G + 0.02)], [X(1.5), Y(G + 0.02)], [X(1.5), Y(G + 0.34)], [X(-1.5), Y(G + 0.34)]]), { fill: '#8ecae6', wash: 0.8, stroke: null });
+      stroke([[X(-1.5), Y(G)], [X(-0.5), Y(G + 0.005)], [X(0.5), Y(G - 0.004)], [X(1.5), Y(G)]], { width: 3 });
+      for (let i = 0; i < 12; i++) {
+        const wx = ((i * 0.37 + t * 0.04) % 2.8) - 1.4, wy = G + 0.07 + (i % 4) * 0.065;
+        stroke([[X(wx), Y(wy)], [X(wx + 0.03), Y(wy - 0.012)], [X(wx + 0.06), Y(wy)], [X(wx + 0.09), Y(wy - 0.012)]], { color: '#219ebc', width: 1.8, a: 0.8 });
+      }
+      // Longtail boat
+      const bx = ((t * 0.06) % 3) - 1.5, by = G + 0.17 + Math.sin(t * 2) * 0.004;
+      seed(670);
+      blob(polyPts([[X(bx - 0.13), Y(by - 0.025)], [X(bx + 0.14), Y(by - 0.04)], [X(bx + 0.1), Y(by + 0.02)], [X(bx - 0.11), Y(by + 0.02)]]), { fill: '#bc6c25', wash: 0.95, hatchColor: '#7f5539', spacing: 4, width: 2, passes: 1, j: 0.6 });
+      stroke([[X(bx - 0.13), Y(by - 0.025)], [X(bx - 0.22), Y(by + 0.03)]], { width: 2 });
+      stroke([[X(bx - 0.26), Y(by + 0.035)], [X(bx - 0.22), Y(by + 0.025)], [X(bx - 0.18), Y(by + 0.04)]], { color: '#ffffff', width: 2.5 });
+
+      // Tuk-tuk
+      const kx = 1.4 - ((t * 0.09 + 0.8) % 2.8);
+      seed(680);
+      blob(polyPts([[X(kx - 0.08), Y(G - 0.03)], [X(kx + 0.07), Y(G - 0.03)], [X(kx + 0.07), Y(G - 0.075)], [X(kx - 0.08), Y(G - 0.075)]]), { fill: '#06d6a0', wash: 0.95, width: 2, passes: 1, j: 0.6 });
+      blob(polyPts([[X(kx - 0.09), Y(G - 0.135)], [X(kx + 0.03), Y(G - 0.135)], [X(kx + 0.03), Y(G - 0.115)], [X(kx - 0.09), Y(G - 0.115)]]), { fill: '#ffd166', wash: 1, width: 2, passes: 1, j: 0.5 });
+      stroke([[X(kx - 0.075), Y(G - 0.115)], [X(kx - 0.075), Y(G - 0.075)]], { width: 2 });
+      stroke([[X(kx + 0.02), Y(G - 0.115)], [X(kx + 0.02), Y(G - 0.075)]], { width: 2 });
+      circ(X(kx - 0.055), Y(G - 0.02), S(0.02), { fill: INK, wash: 1, width: 2, passes: 1, dot: INK });
+      circ(X(kx + 0.05), Y(G - 0.02), S(0.02), { fill: INK, wash: 1, width: 2, passes: 1, dot: INK });
+
+      // Us!
+      seed(690);
+      couple(X(0.13), Y(G), S(0.26), t, 1e9);
+
+      if (L.a > 0.01) {
+        seed(695);
+        label('Bangkok', X(0.62), Y(-0.72), { size: fs * 1.6, a: L.a, rot: -0.05 });
+        label('Wat Arun', X(-0.62), Y(G + 0.055), { size: fs * 0.7, a: L.a * 0.85 });
+        label('Grand Palace', X(-0.13), Y(G + 0.055), { size: fs * 0.7, a: L.a * 0.85 });
+        label('Chao Phraya River', X(0.62), Y(G + 0.29), { size: fs * 0.8, a: L.a, color: '#1d6fa5' });
+        const hx = X(0.13), hy = Y(G - 0.3);
+        const co = planCallout('we are here!', hx, hy, 0.55, -0.83, clamp(S(0.32), 50, 120), fs);
+        drawCallout('we are here!', hx, hy, 14, co, { color: RED, a: L.a, size: fs, bend: -0.25 });
+      }
+    },
+  };
+
+  const EARTH_R = 0.72;
   const earthScene = {
     name: 'Earth',
+    K: ASIA_R / EARTH_R,
+    anchor: () => { const p = project(BKK[0], BKK[1], spin); return [p[0] * EARTH_R, p[1] * EARTH_R]; },
     draw(v, t) {
-      const R = 0.72 * v.s, cx = v.x, cy = v.y;
+      const R = EARTH_R * v.s, cx = v.x, cy = v.y;
       if (!onScreen(cx, cy, R * 1.8)) return;
-      const rot = t * 0.22;
+      const rot = spin;
       const L = labelFx(v), fs = fontBase() * L.k;
 
       // Moon on a tilted orbit: back half drawn behind Earth, front half in front.
@@ -326,14 +657,7 @@
       tracePath(earth, true);
       ctx.clip();
       // Continents
-      CONTINENTS.forEach((poly, i) => {
-        const pr = poly.map(([lo, la]) => project(lo, la, rot));
-        if (Math.max(...pr.map((p) => p[2])) < 0.05) return;
-        seed(20 + i);
-        blob(pr.map((p) => [cx + p[0] * R, cy + p[1] * R]), {
-          fill: '#b7e4c7', wash: 0.95, hatchColor: '#2d6a4f', spacing: 5, angle: 0.7, stroke: '#2d6a4f', width: 2, passes: 1,
-        });
-      });
+      drawLand((lo, la) => project(lo, la, rot), (p) => [cx + p[0] * R, cy + p[1] * R], 20);
       // North polar cap
       seed(30);
       blob(ICE.map(([lo, la]) => project(lo, la, rot)).map((p) => [cx + p[0] * R, cy + p[1] * R]), {
@@ -363,15 +687,14 @@
 
       if (!moonBehind) drawMoon();
 
-      // The two of us waving from the top of the world
-      if (R > 50) {
+      // Where we live
+      const home = project(BKK[0], BKK[1], rot);
+      if (home[2] > 0.25 && R > 50 && L.a > 0.01) {
+        const hx = cx + home[0] * R, hy = cy + home[1] * R;
         seed(33);
-        const ch = clamp(R * 0.24, 16, 46);
-        couple(cx, cy - R + 2, ch, t, R);
-        const lx = cx + R * 0.55, ly = cy - R * 1.12 - fs;
-        label('we are here!', lx + fs * 1.4, ly - fs * 0.2, { size: fs, color: RED, a: L.a, rot: -0.05 });
-        seed(34);
-        if (L.a > 0.01) arrow(lx, ly + fs * 0.4, cx + ch * 0.75, cy - R - ch * 0.75, { color: RED, bend: -0.3, a: L.a });
+        heart(hx, hy - 4, clamp(R * 0.05, 6, 14), { a: L.a });
+        const co = planCallout('we are here!', hx, hy, 0.75, -0.66, clamp(R * 0.75, 70, 170), fs);
+        drawCallout('we are here!', hx, hy, 16, co, { color: RED, a: L.a, size: fs, bend: -0.2 });
       }
       label('Earth', cx - R * 0.95, cy + R * 0.95, { size: fs * 1.4, a: L.a, rot: -0.08 });
     },
@@ -754,7 +1077,8 @@
     },
   };
 
-  const SCENES = [earthScene, solarScene, galaxyScene, universeScene];
+  const SCENES = [bangkokScene, thailandScene, asiaScene, earthScene, solarScene, galaxyScene, universeScene];
+  const EARTH = SCENES.indexOf(earthScene);
 
   // ---------------------------------------------------------------------------
   // Background doodle stars (screen-space, gently twinkling)
@@ -817,10 +1141,23 @@
     T += dt;
     boil = Math.floor(T * (reducedMotion ? 2 : 7)) % 4;
 
+    // Earth spins freely from the Earth step outwards. Heading back in towards
+    // Asia, it first swings round so that Bangkok faces us.
+    let aligned = true;
+    if (pos >= EARTH && target >= EARTH) {
+      spin += dt * 0.22;
+    } else {
+      let d = (((spin - BKK_ROT) % TAU) + TAU) % TAU;
+      if (d > Math.PI) d -= TAU;
+      spin -= Math.abs(d) < 0.003 ? d : d * Math.min(1, dt * 4);
+      aligned = Math.abs(d) < 0.02;
+    }
     if (pos !== target) {
+      const from = pos;
       const rate = (reducedMotion ? 2.5 : 1 / 2.6) * Math.max(1, Math.abs(target - pos));
       const stepAmt = rate * dt;
       pos = Math.abs(target - pos) <= stepAmt ? target : pos + Math.sign(target - pos) * stepAmt;
+      if (!aligned && from >= EARTH && pos < EARTH) pos = EARTH; // wait for Bangkok to come round
     }
     tickAuto(dt);
     render();
@@ -832,6 +1169,21 @@
   // UI
   // ---------------------------------------------------------------------------
   const STEPS = [
+    {
+      title: 'Bangkok',
+      text: 'This is where we live! A buzzing city on the <b>Chao Phraya River</b>, full of golden temples, tuk-tuks and street food, with more than <b>10 million people</b> in the metro area.',
+      scale: 'The city is roughly 50 km across.',
+    },
+    {
+      title: 'Thailand',
+      text: 'Zoom out and Bangkok is a dot at the top of the <b>Gulf of Thailand</b>. Thailand covers about <b>513,000 km²</b> and is home to around <b>70 million people</b>. Some say its map looks like an elephant\'s head.',
+      scale: 'About 1,600 km from north to south.',
+    },
+    {
+      title: 'Asia',
+      text: 'Thailand sits in Southeast Asia. Asia is the <b>biggest continent</b>: about 44 million km², with more than <b>4.7 billion people</b>, around 6 in every 10 humans.',
+      scale: 'Asia covers about 30% of Earth\'s land.',
+    },
     {
       title: 'Planet Earth',
       text: 'Our home! A rocky, watery ball about <b>12,742 km</b> across, with the Moon tagging along <b>384,400 km</b> away. Everyone you have ever met lives on this dot.',
