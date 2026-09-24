@@ -1,0 +1,595 @@
+<title>Camino Ninja Intro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat+Brush&family=Kalam:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: dark;
+    --night: #14325f;      /* Camino marker blue, deepened */
+    --marker: #1d4f91;     /* the blue tile on waymarks */
+    --arrow: #f6c419;      /* the painted yellow arrow */
+    --paper: #fbfaf4;
+    --ink: #1f2433;
+    --mist: #c9d6ea;
+    --soft: #9fb3d4;
+    --hand: "Kalam", "Comic Sans MS", "Chalkboard SE", cursive;
+    --brush: "Caveat Brush", "Kalam", "Comic Sans MS", cursive;
+  }
+  html, body { height: 100%; }
+  body {
+    background: radial-gradient(120% 80% at 70% 10%, #1b4176 0%, var(--night) 60%) fixed, var(--night);
+    color: var(--mist);
+    font-family: var(--hand);
+    padding-inline: 16px;
+    padding-block: 24px;
+    box-sizing: border-box;
+  }
+  .wrap {
+    max-width: 980px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 40px;
+    align-items: center;
+    min-height: 100%;
+  }
+  .notes { max-width: 46ch; display: grid; gap: 14px; }
+  .notes .eyebrow { font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--arrow); margin: 0; }
+  .notes h1 { font-family: var(--brush); font-weight: 400; font-size: 52px; line-height: .95; margin: 0; color: #fff; text-wrap: balance; }
+  .notes p { margin: 0; font-size: 17px; line-height: 1.5; }
+  .notes ul { margin: 0; padding-left: 1.1em; display: grid; gap: 6px; font-size: 16px; line-height: 1.4; }
+  .notes li::marker { color: var(--arrow); content: "➜  "; }
+  .notes .small { font-size: 14px; color: var(--soft); }
+  .notes a { color: var(--arrow); }
+
+  .stage { display: grid; gap: 12px; justify-items: center; }
+  .phone {
+    position: relative;
+    height: min(calc(100dvh - 150px), calc((100vw - 32px) * 19 / 9), 760px);
+    min-height: 420px;
+    aspect-ratio: 9 / 19;
+    max-width: 100%;
+    border-radius: 34px;
+    background: var(--paper);
+    box-shadow: 0 0 0 9px #0c1f3d, 0 0 0 10px #2d568f, 0 30px 60px -20px #000a;
+    overflow: hidden;
+  }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+  .outro {
+    position: absolute; left: 0; right: 0; bottom: 0; top: 55%;
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+    padding: 28px 22px 26px; gap: 6px; text-align: center;
+    color: var(--ink);
+    pointer-events: none;
+    container-type: inline-size;
+  }
+  .outro::before {
+    content: ""; position: absolute; inset: 0; z-index: -1;
+    background: linear-gradient(to bottom, #fbfaf400 0%, var(--paper) 22%);
+    opacity: 0; transition: opacity .6s ease;
+  }
+  .outro.show-logo::before { opacity: 1; }
+  .outro { z-index: 0; }
+  .outro > * { opacity: 0; transform: translateY(10px); transition: opacity .5s ease, transform .6s cubic-bezier(.2,1.4,.4,1); }
+  .outro.show-logo .logo, .outro.show-logo .scribble { opacity: 1; transform: none; }
+  .outro.show-tag .tag, .outro.show-tag .facts { opacity: 1; transform: none; }
+  .outro.show-cta .cta { opacity: 1; transform: none; pointer-events: auto; }
+  .logo {
+    font-family: var(--brush); font-weight: 400; margin: 0;
+    font-size: clamp(34px, 12cqw, 52px); line-height: 1; color: var(--ink);
+    clip-path: inset(0 100% 0 0);
+    transition: clip-path 1.1s cubic-bezier(.6,.1,.3,1), opacity .2s, transform .2s !important;
+  }
+  .outro.show-logo .logo { clip-path: inset(0 -5% 0 0); }
+  .logo span { color: var(--marker); }
+  .scribble { width: 70%; height: 14px; margin-top: -6px; }
+  .scribble path { stroke: var(--arrow); stroke-width: 5; fill: none; stroke-linecap: round; stroke-dasharray: 260; stroke-dashoffset: 260; transition: stroke-dashoffset .9s .5s ease-out; }
+  .outro.show-logo .scribble path { stroke-dashoffset: 0; }
+  .tag { margin: 6px 0 0; font-size: 17px; line-height: 1.35; max-width: 26ch; }
+  .facts { margin: 0; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: #5a6b86; }
+  .cta {
+    margin-top: 12px; font: 700 18px var(--hand); color: var(--ink);
+    background: var(--arrow); border: 2.5px solid var(--ink); border-radius: 14px 18px 13px 17px;
+    padding: 8px 22px 6px; box-shadow: 3px 4px 0 var(--ink); cursor: pointer;
+  }
+  .cta:active { transform: translate(2px, 3px) !important; box-shadow: 1px 1px 0 var(--ink); }
+  .cta:focus-visible, .controls button:focus-visible { outline: 3px solid var(--arrow); outline-offset: 3px; }
+  .toast {
+    position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
+    background: var(--ink); color: var(--paper); font-size: 14px; padding: 6px 14px; border-radius: 10px;
+    white-space: nowrap;
+  }
+
+  .controls { display: flex; gap: 10px; align-items: center; width: 100%; max-width: 360px; }
+  .controls button {
+    font: 700 15px var(--hand); color: var(--night); background: var(--mist);
+    border: 0; border-radius: 10px; padding: 6px 14px 4px; cursor: pointer;
+  }
+  .controls button:hover { background: #fff; }
+  .bar { flex: 1; height: 6px; border-radius: 3px; background: #ffffff22; overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--arrow); }
+
+  @media (max-width: 760px) {
+    .wrap { grid-template-columns: 1fr; gap: 28px; }
+    .stage { order: -1; }
+    .notes { margin: 0 auto; }
+    .notes h1 { font-size: 42px; }
+  }
+</style>
+
+<div class="wrap">
+  <section class="notes">
+    <p class="eyebrow">App intro · concept doodle</p>
+    <h1>Camino Ninja</h1>
+    <p>Camino Ninja is a free app for walking the Camino de Santiago, made by Jakobsweg-Zentrale. It has offline maps, stage planning with distances and elevation, and hostel reviews from other pilgrims. It has no ads.</p>
+    <ul>
+      <li>A pilgrim ninja poofs in at Saint-Jean-Pied-de-Port.</li>
+      <li>It runs the Camino Francés, flipping over the Pyrenees. The km counter drops through Pamplona, Burgos, León, the Cruz de Ferro, rainy O Cebreiro and the 100 km stone past Sarria.</li>
+      <li>The route behind it gets marked with the yellow arrow's colour. At the cathedral a scallop-shell sunburst opens and the logo writes itself in.</li>
+    </ul>
+    <p class="small">About 15 seconds. Distances are rounded. Sources: <a href="https://www.caminoninja.com/" target="_blank" rel="noopener">caminoninja.com</a>, <a href="https://apps.apple.com/us/app/camino-ninja-app/id1491232190" target="_blank" rel="noopener">App Store</a>.</p>
+  </section>
+
+  <section class="stage" aria-label="Animated app intro">
+    <div class="phone" id="phone">
+      <canvas id="c" role="img" aria-label="Doodle of a ninja pilgrim running the Camino Francés from Saint-Jean-Pied-de-Port to Santiago de Compostela"></canvas>
+      <div class="outro" id="outro">
+        <h2 class="logo">Camino <span>Ninja</span></h2>
+        <svg class="scribble" viewBox="0 0 240 14" preserveAspectRatio="none" aria-hidden="true"><path d="M4 9 C 50 3, 90 12, 130 7 S 200 4, 236 8"/></svg>
+        <p class="tag">Plan every stage. Find a good bed. Walk your Camino.</p>
+        <p class="facts">Free · offline maps · no ads</p>
+        <button class="cta" id="cta" type="button">Start planning →</button>
+      </div>
+      <div class="toast" id="toast" hidden>Concept only. The app would open here.</div>
+    </div>
+    <div class="controls">
+      <button id="replay" type="button">↺ Replay</button>
+      <div class="bar" aria-hidden="true"><i id="bar"></i></div>
+      <button id="skip" type="button">Skip ⇥</button>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const cv = document.getElementById('c');
+  const ctx = cv.getContext('2d');
+  const phone = document.getElementById('phone');
+  const outro = document.getElementById('outro');
+  const bar = document.getElementById('bar');
+
+  const INK = '#1f2433', PAPER = '#fbfaf4', BLUE = '#1d4f91', YEL = '#f6c419',
+        RED = '#d8413a', SKIN = '#f1c9a5', ROOF = '#c8553d', GREEN = '#5c8f4a',
+        STONE = '#b9b4a7', PENCIL = '#b8bccb', WHEAT = '#c99a2e';
+  const HAND = '"Kalam", "Comic Sans MS", cursive';
+  const TAU = Math.PI * 2;
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const lerp = (a, b, k) => a + (b - a) * k;
+  const backOut = (t) => { if (t <= 0) return 0; if (t >= 1) return 1; const c1 = 1.9, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); };
+  const easeOut = (t) => 1 - Math.pow(1 - clamp(t, 0, 1), 3);
+
+  // ---- Timeline (seconds) ----
+  const T0 = 1.0, WALK = 11.0, TARR = T0 + WALK;
+  const T_LOGO = TARR + 1.3, T_TAG = TARR + 2.2, T_CTA = TARR + 2.8, END = TARR + 3.6;
+
+  // ---- Hand-drawn "boil": seeded jitter that changes ~8 times a second ----
+  let rs = 1, boil = 0, sid = 0;
+  const rnd = () => { rs |= 0; rs = (rs + 0x6d2b79f5) | 0; let t = Math.imul(rs ^ (rs >>> 15), 1 | rs); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const next = () => { rs = Math.imul(++sid, 2654435761) ^ (boil * 97531); };
+  const jit = (a) => (rnd() - 0.5) * 2 * a;
+
+  function sub(pts, step = 9, closed = false) {
+    const out = [];
+    const n = closed ? pts.length : pts.length - 1;
+    for (let i = 0; i < n; i++) {
+      const a = pts[i], b = pts[(i + 1) % pts.length];
+      const k = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / step));
+      for (let j = 0; j < k; j++) out.push([lerp(a[0], b[0], j / k), lerp(a[1], b[1], j / k)]);
+    }
+    if (!closed) out.push(pts[pts.length - 1]);
+    return out;
+  }
+  function draw(pts, o = {}) {
+    const { w = 2.2, c = INK, j = 0.9, close = false, fill = null, dense = true } = o;
+    next();
+    const q = (dense ? sub(pts, 9, close) : pts).map(p => [p[0] + jit(j), p[1] + jit(j)]);
+    ctx.beginPath();
+    ctx.moveTo(q[0][0], q[0][1]);
+    for (let i = 1; i < q.length; i++) ctx.lineTo(q[i][0], q[i][1]);
+    if (close) ctx.closePath();
+    if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+    if (w > 0) { ctx.lineWidth = w; ctx.strokeStyle = c; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.stroke(); }
+  }
+  const circlePts = (x, y, r, n = 16) => Array.from({ length: n }, (_, i) => [x + Math.cos(i / n * TAU) * r, y + Math.sin(i / n * TAU) * r]);
+  const circle = (x, y, r, o = {}) => draw(circlePts(x, y, r, Math.max(10, Math.round(r * 1.4))), { close: true, dense: false, ...o });
+  const rect = (x, y, w, h, o = {}) => draw([[x, y], [x + w, y], [x + w, y + h], [x, y + h]], { close: true, ...o });
+  function text(s, x, y, o = {}) {
+    const { size = 15, c = INK, align = 'left', weight = 400, rot = 0 } = o;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
+    ctx.font = `${weight} ${size}px ${HAND}`; ctx.fillStyle = c; ctx.textAlign = align; ctx.textBaseline = 'middle';
+    ctx.fillText(s, 0, 0); ctx.restore();
+  }
+
+  // ---- The route: a serpentine up the screen, Saint-Jean at the bottom, Santiago at the top ----
+  const V = [
+    [60, 2090], [200, 2080], [320, 2040],
+    [330, 1970], [230, 1930], [80, 1910],
+    [60, 1840], [150, 1770], [300, 1750],
+    [330, 1680], [220, 1620], [80, 1590],
+    [60, 1520], [170, 1460], [320, 1430],
+    [330, 1360], [200, 1310], [70, 1280],
+    [60, 1210], [180, 1150], [320, 1120],
+    [330, 1050], [200, 1000], [70, 970],
+    [60, 900], [170, 840], [320, 810],
+    [330, 740], [220, 700], [90, 680],
+    [60, 610], [150, 560], [290, 540],
+    [320, 480], [250, 430], [195, 405]
+  ];
+  const WW = 390, WH = 2170, SEG = 24;
+  const P = [], L = [0], vIdx = [];
+  for (let i = 0; i < V.length - 1; i++) {
+    const p0 = V[Math.max(0, i - 1)], p1 = V[i], p2 = V[i + 1], p3 = V[Math.min(V.length - 1, i + 2)];
+    vIdx[i] = P.length;
+    for (let s = 0; s < SEG; s++) {
+      const t = s / SEG, t2 = t * t, t3 = t2 * t;
+      const f = (a, b, c, d) => 0.5 * ((2 * b) + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (-a + 3 * b - 3 * c + d) * t3);
+      P.push([f(p0[0], p1[0], p2[0], p3[0]), f(p0[1], p1[1], p2[1], p3[1])]);
+    }
+  }
+  vIdx[V.length - 1] = P.length; P.push(V[V.length - 1]);
+  for (let i = 1; i < P.length; i++) L.push(L[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
+  const TOTAL = L[L.length - 1];
+  const fracV = (i) => L[vIdx[i]] / TOTAL;
+  function at(s) {
+    s = clamp(s, 0, TOTAL);
+    let lo = 0, hi = L.length - 1;
+    while (hi - lo > 1) { const m = (lo + hi) >> 1; if (L[m] < s) lo = m; else hi = m; }
+    const k = (s - L[lo]) / ((L[hi] - L[lo]) || 1);
+    const a = P[lo], b = P[hi];
+    return { x: lerp(a[0], b[0], k), y: lerp(a[1], b[1], k), ang: Math.atan2(b[1] - a[1], b[0] - a[0]), i: lo };
+  }
+
+  // km to Santiago at each checkpoint (Camino Francés, rounded)
+  const KM = [[0, 775], [7, 750], [10, 705], [16, 490], [22, 310], [25, 225], [28, 155], [31, 115], [32, 100], [35, 0]].map(([v, km]) => [fracV(v), km]);
+  function kmAt(p) {
+    for (let i = 1; i < KM.length; i++) if (p <= KM[i][0]) return lerp(KM[i - 1][1], KM[i][1], (p - KM[i - 1][0]) / (KM[i][0] - KM[i - 1][0]));
+    return 0;
+  }
+  const progress = (t) => clamp((t - T0) / WALK, 0, 1);
+  const tAt = (f) => T0 + f * WALK;
+  const popAt = (t, f, lead = 0.35) => backOut((t - (tAt(f) - lead)) / 0.45);
+  const FLIP = [(fracV(1) + fracV(2)) / 2, (fracV(3) + fracV(4)) / 2];
+
+  // ---- Scenery ----
+  function house(x, y, s = 1, roof = ROOF) {
+    rect(x - 8 * s, y - 11 * s, 16 * s, 11 * s, { fill: PAPER, w: 1.8 });
+    draw([[x - 10 * s, y - 10 * s], [x, y - 19 * s], [x + 10 * s, y - 10 * s]], { close: true, fill: roof, w: 1.8 });
+    rect(x - 2 * s, y - 6 * s, 4 * s, 6 * s, { w: 1.4 });
+  }
+  function scaled(x, y, k, fn) {
+    if (k <= 0) return;
+    ctx.save(); ctx.translate(x, y); ctx.scale(k, k); ctx.translate(-x, -y); fn(); ctx.restore();
+  }
+  function town(name, km, x, y, side, k) {
+    scaled(x, y, k, () => {
+      house(x - 14, y, 0.9); house(x + 4, y + 3, 1.1); house(x + 20, y - 1, 0.8, '#d7774a');
+      const lx = side > 0 ? x + 36 : x - 30;
+      text(name, lx, y - 12, { size: 16, weight: 700, align: side > 0 ? 'left' : 'right' });
+      text(`≈${km} km`, lx, y + 5, { size: 13, c: BLUE, align: side > 0 ? 'left' : 'right' });
+    });
+  }
+  function mountain(x, base, w, h, snow = true) {
+    draw([[x - w / 2, base], [x, base - h], [x + w / 2, base]], { fill: '#e4e8ef', w: 2 });
+    if (snow) draw([[x - w * 0.14, base - h * 0.72], [x, base - h], [x + w * 0.14, base - h * 0.72], [x + w * 0.04, base - h * 0.64], [x - w * 0.05, base - h * 0.74]], { close: true, fill: '#fff', w: 1.5 });
+  }
+  function tree(x, y, s = 1) {
+    draw([[x, y], [x, y - 12 * s]], { w: 2, c: '#7a5a3a' });
+    circle(x, y - 18 * s, 8 * s, { fill: GREEN, w: 1.8 });
+  }
+  function wheat(x, y) {
+    draw([[x, y], [x + 1, y - 14]], { w: 1.6, c: WHEAT });
+    draw([[x - 2, y - 13], [x + 1, y - 20], [x + 3, y - 13]], { w: 1.6, c: WHEAT, fill: '#e9c870' });
+  }
+  function yellowArrow(x, y, ang, k) {
+    scaled(x, y, k, () => {
+      draw([[x - 11, y + 5], [x - 8, y - 5], [x + 9, y - 6], [x + 12, y + 4], [x + 2, y + 8]], { close: true, fill: STONE, w: 1.6 });
+      ctx.save(); ctx.translate(x, y + 1); ctx.rotate(ang);
+      draw([[-6, 0], [5, 0]], { w: 3, c: YEL, j: 0.5 });
+      draw([[1, -4], [6, 0], [1, 4]], { w: 3, c: YEL, j: 0.5 });
+      ctx.restore();
+    });
+  }
+  function shellMark(x, y, r, color = YEL) {
+    // Camino scallop, stylised as rays from a hinge
+    for (let i = 0; i < 7; i++) {
+      const a = Math.PI + (i + 0.5) / 7 * Math.PI;
+      draw([[x, y], [x + Math.cos(a) * r, y + Math.sin(a) * r]], { w: 1.4, c: color, j: 0.2, dense: false });
+    }
+  }
+  function mojon(x, y, k) {
+    scaled(x, y, k, () => {
+      draw([[x - 8, y], [x - 7, y - 30], [x - 3, y - 34], [x + 3, y - 34], [x + 7, y - 30], [x + 8, y]], { close: true, fill: '#d9d4c7', w: 2 });
+      rect(x - 5, y - 28, 10, 10, { fill: BLUE, w: 1.2 });
+      shellMark(x, y - 20, 5.5);
+      text('100', x, y - 10, { size: 10, weight: 700, align: 'center' });
+      text('100 km to go', x - 14, y - 22, { size: 14, weight: 700, align: 'right' });
+    });
+  }
+  function cruz(x, y, k) {
+    scaled(x, y, k, () => {
+      for (let i = 0; i < 9; i++) circle(x - 16 + (i % 5) * 8 + (i > 4 ? 4 : 0), y - (i > 4 ? 7 : 1), 4, { fill: i % 3 ? STONE : '#d9d4c7', w: 1.2 });
+      draw([[x, y - 8], [x, y - 62]], { w: 3, c: '#7a5a3a' });
+      draw([[x, y - 62], [x, y - 76]], { w: 2.5 });
+      draw([[x - 6, y - 71], [x + 6, y - 71]], { w: 2.5 });
+      text('Cruz de Ferro', x + 12, y - 58, { size: 15, weight: 700 });
+      text('leave a stone', x + 12, y - 42, { size: 13, c: BLUE });
+    });
+  }
+  function rainCloud(x, y, k, t) {
+    scaled(x, y, k, () => {
+      for (let i = 0; i < 5; i++) {
+        const dy = ((t * 60 + i * 13) % 34);
+        draw([[x - 22 + i * 11, y + 10 + dy], [x - 24 + i * 11, y + 16 + dy]], { w: 1.8, c: BLUE, j: 0.3 });
+      }
+      const bumps = [[-20, 2, 10], [-8, -6, 13], [8, -4, 12], [20, 3, 9]];
+      bumps.forEach(([dx, dy, r]) => circle(x + dx, y + dy, r, { fill: '#e6ecf5', w: 0 }));
+      draw([[x - 30, y + 8], [x - 30, y - 2], [x - 20, y - 8], [x - 14, y - 16], [x - 2, y - 19], [x + 8, y - 15], [x + 16, y - 12], [x + 26, y - 6], [x + 30, y + 4], [x + 26, y + 10], [x - 26, y + 10]], { close: true, w: 2 });
+      text('O Cebreiro', x + 40, y - 6, { size: 15, weight: 700 });
+      text('≈155 km · Galicia', x + 40, y + 11, { size: 13, c: BLUE });
+    });
+  }
+  function cathedral(k) {
+    const cx = 195, B = 382;
+    scaled(cx, B, k, () => {
+      // stairs
+      draw([[cx - 62, B], [cx + 62, B]], { w: 2 });
+      draw([[cx - 54, B - 7], [cx + 54, B - 7]], { w: 2 });
+      // towers
+      for (const sx of [-1, 1]) {
+        const x0 = cx + sx * 60;
+        rect(x0 - 15, B - 210, 30, 196, { fill: PAPER, w: 2.2 });
+        rect(x0 - 11, B - 238, 22, 28, { fill: PAPER, w: 2 });
+        draw([[x0 - 11, B - 238], [x0, B - 272], [x0 + 11, B - 238]], { close: true, fill: '#e4e8ef', w: 2 });
+        draw([[x0, B - 272], [x0, B - 283]], { w: 1.8 });
+        for (const wy of [B - 180, B - 130, B - 80]) draw([[x0 - 5, wy + 16], [x0 - 5, wy + 4], [x0, wy], [x0 + 5, wy + 4], [x0 + 5, wy + 16]], { w: 1.6 });
+        draw([[x0 - 7, B - 232], [x0 - 7, B - 218], [x0 + 7, B - 218], [x0 + 7, B - 232]], { w: 1.3 });
+      }
+      // facade + gable
+      rect(cx - 45, B - 128, 90, 114, { fill: PAPER, w: 2.2 });
+      draw([[cx - 45, B - 128], [cx, B - 164], [cx + 45, B - 128]], { close: true, fill: PAPER, w: 2.2 });
+      draw([[cx, B - 164], [cx, B - 180]], { w: 2 }); draw([[cx - 6, B - 174], [cx + 6, B - 174]], { w: 2 });
+      circle(cx, B - 100, 11, { w: 1.8, fill: '#e4e8ef' });
+      shellMark(cx, B - 94, 9, BLUE);
+      draw([[cx - 14, B - 14], [cx - 14, B - 50], [cx - 7, B - 62], [cx + 7, B - 62], [cx + 14, B - 50], [cx + 14, B - 14]], { w: 2, fill: '#e4e8ef' });
+      text('Santiago de Compostela', cx, 76, { size: 17, weight: 700, align: 'center' });
+      text('km 0', cx, 95, { size: 14, c: BLUE, align: 'center' });
+    });
+  }
+  function sunburst(k) {
+    if (k <= 0) return;
+    const cx = 195, cy = 372, R = 178 * k, ribs = 11;
+    const a0 = Math.PI * 1.06, a1 = Math.PI * 1.94;
+    const edge = [[cx, cy]];
+    for (let i = 0; i <= ribs * 6; i++) {
+      const a = lerp(a0, a1, i / (ribs * 6));
+      const bump = Math.sin((i % 6) / 6 * Math.PI) * 10 * k;
+      edge.push([cx + Math.cos(a) * (R + bump), cy + Math.sin(a) * (R + bump)]);
+    }
+    draw(edge, { close: true, fill: '#fbe07a', w: 2.2, dense: false });
+    for (let i = 0; i <= ribs; i++) {
+      const a = lerp(a0, a1, i / ribs);
+      draw([[cx + Math.cos(a) * 30 * k, cy + Math.sin(a) * 30 * k], [cx + Math.cos(a) * R, cy + Math.sin(a) * R]], { w: 1.6, c: '#c99a2e' });
+      const r2 = R + 22 * k;
+      if (i > 0 && i < ribs) draw([[cx + Math.cos(a) * (R + 16 * k), cy + Math.sin(a) * (R + 16 * k)], [cx + Math.cos(a) * r2, cy + Math.sin(a) * r2]], { w: 2.4, c: YEL });
+    }
+  }
+
+  // ---- The pilgrim ninja ----
+  function ninja(x, y, o) {
+    const { dir = 1, phase = 0, rot = 0, cheer = 0, time = 0, still = false } = o;
+    ctx.save();
+    ctx.translate(x, y); ctx.scale(dir * 1.15, 1.15);
+    if (rot) { ctx.translate(0, -20); ctx.rotate(rot); ctx.translate(0, 20); }
+    const a = still ? 0 : Math.sin(phase), lean = still ? 0 : 3;
+    const hip = [0, -14], neck = [lean, -26];
+    // back leg, back arm
+    draw([hip, [-a * 4 + 2, -7], [-a * 8, 0]], { w: 2.6, j: 0.4, dense: false });
+    // backpack with shell
+    draw([[lean - 9, -27], [lean - 2, -27], [lean - 2, -15], [lean - 9, -15]], { close: true, fill: BLUE, w: 1.8, j: 0.4 });
+    shellMark(lean - 5.5, -18.5, 4.5);
+    draw([hip, neck], { w: 2.8, j: 0.4, dense: false });
+    draw([[lean, -24], [lean - 5 - a * 3, -17]], { w: 2.4, j: 0.4, dense: false });
+    draw([hip, [a * 4 + 3, -7], [a * 8, 0]], { w: 2.6, j: 0.4, dense: false });
+    // staff (bordón) with gourd
+    if (cheer > 0) {
+      draw([[lean, -24], [lean + 6, -38]], { w: 2.4, j: 0.4, dense: false });
+      draw([[lean + 7, -58], [lean + 6, -20]], { w: 2.2, c: '#7a5a3a', j: 0.3, dense: false });
+      circle(lean + 9.5, -52, 2.6, { fill: '#e2873a', w: 1.2, j: 0.2 });
+    } else {
+      draw([[lean, -24], [lean + 8, -18]], { w: 2.4, j: 0.4, dense: false });
+      draw([[lean + 12, -36], [lean + 7, 1]], { w: 2.2, c: '#7a5a3a', j: 0.3, dense: false });
+      circle(lean + 14, -31, 2.6, { fill: '#e2873a', w: 1.2, j: 0.2 });
+    }
+    // hooded head, eye slit, red headband with fluttering tails
+    const hx = lean + 1, hy = -32;
+    circle(hx, hy, 6.8, { fill: INK, w: 1.4, j: 0.3 });
+    draw([[hx - 0.5, hy - 2.6], [hx + 6.6, hy - 2.8], [hx + 6.8, hy + 0.8], [hx - 0.5, hy + 0.9]], { close: true, fill: SKIN, w: 0, j: 0.2, dense: false });
+    ctx.fillStyle = INK; ctx.fillRect(hx + 2.4, hy - 1.6, 1.4, 1.6); ctx.fillRect(hx + 4.9, hy - 1.6, 1.4, 1.6);
+    draw([[hx - 6.5, hy - 4.2], [hx + 6.5, hy - 5.2]], { w: 2.4, c: RED, j: 0.2, dense: false });
+    for (const off of [0, 2.5]) {
+      const pts = [];
+      for (let k = 0; k <= 4; k++) pts.push([hx - 6 - k * 3.4, hy - 4 + off * (k / 4) + Math.sin(time * 16 + k * 1.1 + off) * (k / 4) * 2.4]);
+      draw(pts, { w: 2, c: RED, j: 0.15, dense: false });
+    }
+    ctx.restore();
+  }
+
+  // ---- Frame ----
+  let cssW = 360, cssH = 760, scale = 1, viewH = 823, dpr = 1;
+  function resize() {
+    const r = phone.getBoundingClientRect();
+    cssW = r.width; cssH = r.height; dpr = Math.min(2, window.devicePixelRatio || 1);
+    cv.width = Math.round(cssW * dpr); cv.height = Math.round(cssH * dpr);
+    scale = cssW / WW; viewH = cssH / scale;
+  }
+  new ResizeObserver(resize).observe(phone);
+  resize();
+
+  let lastDir = 1;
+  function frame(t, clock) {
+    boil = Math.floor(clock * 8) % 4; sid = 0;
+    const p = progress(t), s = p * TOTAL, pos = at(s);
+    const arrived = t >= TARR;
+    const camY = clamp(pos.y - viewH * 0.62, 0, Math.max(0, WH - viewH));
+
+    ctx.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0);
+    ctx.fillStyle = PAPER; ctx.fillRect(0, 0, WW, viewH);
+    ctx.translate(0, -camY);
+
+    // dot-grid notebook paper
+    ctx.fillStyle = '#dfe4ee';
+    for (let y = Math.floor(camY / 26) * 26; y < camY + viewH + 26; y += 26)
+      for (let x = 13; x < WW; x += 26) ctx.fillRect(x, y, 1.6, 1.6);
+
+    // --- scenery behind the route ---
+    sunburst(backOut((t - TARR - 0.2) / 1.0));
+    cathedral(popAt(t, 0.94, 0.6));
+    // Pyrenees
+    const kP = popAt(t, 0.0, 0.8);
+    scaled(200, 2060, kP, () => { mountain(150, 2058, 110, 80); mountain(235, 2058, 120, 105); mountain(355, 2045, 90, 70); });
+    if (kP > 0.5) text('Pyrenees', 235, 2005 - 52, { size: 14, c: BLUE, align: 'center' });
+    // Rioja vines / meseta wheat
+    const kW = popAt(t, fracV(17));
+    scaled(200, 1245, kW, () => {
+      for (let i = 0; i < 16; i++) wheat(110 + (i % 8) * 24 + (i > 7 ? 12 : 0), 1215 + (i > 7 ? 26 : 0));
+      text('the Meseta', 300, 1190, { size: 14, c: WHEAT, weight: 700, align: 'center' });
+    });
+    // trees along the way
+    [[fracV(8), 340, 1800], [fracV(12), 30, 1470], [fracV(14), 350, 1500], [fracV(24), 28, 860], [fracV(27), 360, 790], [fracV(29), 40, 740], [fracV(30), 360, 600], [fracV(31), 30, 520], [fracV(33), 355, 420]]
+      .forEach(([f, x, y], i) => scaled(x, y, popAt(t, f), () => tree(x, y, 0.8 + (i % 3) * 0.15)));
+
+    // --- the route: whole plan in pencil, walked part highlighted ---
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.setLineDash([2, 9]); ctx.lineWidth = 2; ctx.strokeStyle = PENCIL;
+    ctx.beginPath(); ctx.moveTo(P[0][0], P[0][1]); for (const q of P) ctx.lineTo(q[0], q[1]); ctx.stroke();
+    ctx.setLineDash([]);
+    if (s > 0) {
+      ctx.beginPath(); ctx.moveTo(P[0][0], P[0][1]);
+      for (let i = 1; i <= pos.i; i++) ctx.lineTo(P[i][0], P[i][1]);
+      ctx.lineTo(pos.x, pos.y);
+      ctx.strokeStyle = 'rgba(246,196,25,.55)'; ctx.lineWidth = 13; ctx.stroke();
+      ctx.setLineDash([7, 8]); ctx.strokeStyle = INK; ctx.lineWidth = 2.3; ctx.stroke(); ctx.setLineDash([]);
+    }
+
+    // yellow arrows on stones beside the path
+    [1, 4, 8, 11, 14, 17, 20, 23, 26, 29, 33].forEach((v) => {
+      const q = at(fracV(v) * TOTAL + 20);
+      const nx = -Math.sin(q.ang) * 20, ny = Math.cos(q.ang) * 20;
+      yellowArrow(q.x + nx, q.y + ny, q.ang, popAt(t, fracV(v)));
+    });
+
+    // towns and landmarks
+    town('Saint-Jean-Pied-de-Port', 775, 44, 2140, 1, popAt(t, 0, 0.9));
+    town('Roncesvalles', 750, 150, 1828, 1, popAt(t, fracV(7)));
+    town('Pamplona', 705, 230, 1678, -1, popAt(t, fracV(10)));
+    town('Burgos', 490, 190, 1366, 1, popAt(t, fracV(16)));
+    town('León', 310, 200, 1056, 1, popAt(t, fracV(22)));
+    cruz(150, 800, popAt(t, fracV(25)));
+    rainCloud(170, 632, popAt(t, fracV(28)), clock);
+    town('Sarria', 115, 118, 612, 1, popAt(t, fracV(31)));
+    mojon(300, 585, popAt(t, fracV(32)));
+
+    // --- poof entrance ---
+    const pf = (t - 0.2) / 0.9;
+    if (pf > 0 && pf < 1) {
+      for (let i = 0; i < 7; i++) {
+        const a = i / 7 * TAU + 0.4, d = 8 + easeOut(pf) * 26;
+        ctx.globalAlpha = 1 - pf;
+        circle(V[0][0] + Math.cos(a) * d, V[0][1] - 18 + Math.sin(a) * d * 0.7, 7 + pf * 7, { fill: '#eef0f4', w: 1.6 });
+      }
+      ctx.globalAlpha = 1;
+      scaled(V[0][0] + 44, V[0][1] - 52, backOut(pf * 2.5), () => text('poof!', V[0][0] + 44, V[0][1] - 52, { size: 20, weight: 700, rot: -0.15 }));
+    }
+
+    // --- the ninja ---
+    if (t > 0.55) {
+      const c = Math.cos(pos.ang);
+      if (Math.abs(c) > 0.35) lastDir = c > 0 ? 1 : -1;
+      let lift = 0, rot = 0, cheer = 0;
+      if (p > FLIP[0] && p < FLIP[1]) {
+        const k = (p - FLIP[0]) / (FLIP[1] - FLIP[0]);
+        lift = Math.sin(Math.PI * k) * 58; rot = k * TAU;
+      }
+      if (arrived) {
+        const hop = (t - TARR - 0.1) / 0.5;
+        if (hop > 0 && hop < 1) lift = Math.sin(Math.PI * hop) * 22;
+        cheer = t > TARR + 0.1 ? 1 : 0;
+      }
+      const moving = t > T0 && !arrived;
+      // speed lines
+      if (moving && !rot) {
+        for (let i = 0; i < 3; i++) {
+          const b = at(s - 16 - i * 7), off = (i - 1) * 7;
+          const nx = -Math.sin(b.ang) * off, ny = Math.cos(b.ang) * off;
+          const len = 10 - i * 2;
+          draw([[b.x + nx, b.y + ny - 16], [b.x + nx - Math.cos(b.ang) * len, b.y + ny - 16 - Math.sin(b.ang) * len]], { w: 1.6, c: '#8b93a7', j: 0.3, dense: false });
+        }
+      }
+      ctx.globalAlpha = clamp((t - 0.55) / 0.15, 0, 1);
+      ninja(pos.x, pos.y - lift, { dir: arrived ? 1 : lastDir, phase: s * 0.16, rot: rot * lastDir, cheer, time: clock, still: !moving });
+      ctx.globalAlpha = 1;
+      if (arrived) {
+        const kb = backOut((t - TARR - 0.6) / 0.45);
+        scaled(112, 424, kb, () => {
+          draw([[56, 410], [164, 406], [166, 404], [184, 396], [168, 420], [168, 440], [58, 442]], { close: true, fill: '#fff', w: 2 });
+          text('¡Buen Camino!', 112, 424, { size: 17, weight: 700, align: 'center' });
+        });
+      }
+    }
+
+    // --- HUD (screen space) ---
+    ctx.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0);
+    const hud = clamp((t - 0.6) / 0.3, 0, 1) * (1 - clamp((t - TARR) / 0.5, 0, 1));
+    if (hud > 0) {
+      ctx.globalAlpha = hud;
+      draw([[16, 22], [196, 20], [198, 58], [15, 60]], { close: true, fill: BLUE, w: 0, j: 0.6 });
+      shellMark(36, 49, 14);
+      text(`${Math.round(kmAt(p))}`, 58, 40, { size: 24, weight: 700, c: '#fff' });
+      ctx.font = `700 24px ${HAND}`;
+      const wNum = ctx.measureText(`${Math.round(kmAt(p))}`).width;
+      text('km to Santiago', 64 + wNum, 42, { size: 14, c: '#fbe07a' });
+      text('Camino Francés', WW - 16, 41, { size: 14, c: BLUE, align: 'right', weight: 700 });
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // ---- Playback ----
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let t = reduced ? END : 0, last = performance.now(), clock = 0;
+  function sync() {
+    outro.classList.toggle('show-logo', t >= T_LOGO);
+    outro.classList.toggle('show-tag', t >= T_TAG);
+    outro.classList.toggle('show-cta', t >= T_CTA);
+    bar.style.width = `${Math.min(100, t / END * 100)}%`;
+  }
+  function loop(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    clock += reduced ? 0 : dt;
+    if (t < END) t = Math.min(END, t + dt);
+    frame(t, clock);
+    sync();
+    requestAnimationFrame(loop);
+  }
+  document.getElementById('replay').addEventListener('click', () => { t = 0; sync(); });
+  document.getElementById('skip').addEventListener('click', () => { t = END; sync(); });
+  const toast = document.getElementById('toast');
+  let toastTimer;
+  document.getElementById('cta').addEventListener('click', () => {
+    toast.hidden = false; clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toast.hidden = true; }, 2200);
+  });
+  requestAnimationFrame(loop);
+})();
+</script>
